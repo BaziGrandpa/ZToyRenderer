@@ -14,40 +14,49 @@ const TGAColor orange = TGAColor(255, 153, 102, 255);
 const TGAColor blue = TGAColor(0, 102, 255, 255);
 
 //定义光源方向
-Vec3f lightDir = Vec3f(0, 1, 0);
+Vec3f lightDir = Vec3f(0, 0, -1);
 
 Model *model = NULL;
+TGAImage *diffuse = NULL;
 const int width = 800;
 const int height = 800;
 
+Vec3f world2screen(Vec3f v)
+{
+        return Vec3f(int((v.x + 1.) * width / 2. + .5), int((v.y + 1.) * height / 2. + .5), v.z);
+}
 int main(int argc, char **argv)
 {
         //读模型
         model = new Model("obj/african_head.obj");
+
+        //读贴图
+        diffuse = new TGAImage();
+        diffuse->read_tga_file("texture/african_head_diffuse.tga");
+
+        float *zbuffer = new float[width * height];
+        for (int i = width * height; i--; zbuffer[i] = -std::numeric_limits<float>::max())
+                ;
+
         TGAImage image(width, height, TGAImage::RGB);
 
         for (int i = 0; i < model->nfaces(); i++)
         {
                 std::vector<int> face = model->face(i);
-
-                //转换屏幕坐标
-                Vec2i screen_cor[3];
-                Vec3f world_cors[3];
-                for (int j = 0; j < 3; j++)
+                Vec3f pts[3];
+                Vec3f worldPos[3];          // obj原始世界坐标
+                for (int i = 0; i < 3; i++) //一个面的三个顶点
                 {
-                        Vec3f v = model->vert(face[j]);
-                        screen_cor[j] = Vec2i((v.x + 1.) * width / 2, (v.y + 1.) * height / 2);
-                        world_cors[j] = v;
+                        Vec3f v = model->vert(face[i]);
+                        pts[i] = world2screen(v);
+                        worldPos[i] = Vec3f(v.x, v.y, v.z);
                 }
-                //在世界坐标算光照和法线
-                //先计算法线
-                Vec3f normal = (world_cors[2] - world_cors[0]) ^ (world_cors[1] - world_cors[0]);
-                //计算夹角
+                //法线
+                Vec3f normal = cross(worldPos[2] - worldPos[0], worldPos[1] - worldPos[0]);
                 normal.normalize();
                 float intensity = normal * lightDir;
-                //在屏幕空间着色
                 if (intensity > 0)
-                        RasterizedTiangle3(screen_cor, image, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255));
+                        RasterizedTiangle4(pts, zbuffer, image, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255));
         }
 
         image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
