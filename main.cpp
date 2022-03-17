@@ -44,19 +44,31 @@ int main(int argc, char **argv)
         {
                 std::vector<int> face = model->face(i);
                 Vec3f pts[3];
-                Vec3f worldPos[3];          // obj原始世界坐标
+                Vec3f worldPos[3]; // obj原始世界坐标
+                Vec3f normals[3];
+                Vec3f uvs[3];
                 for (int i = 0; i < 3; i++) //一个面的三个顶点
                 {
-                        Vec3f v = model->vert(face[i]);
+                        int vertexId = i * 3;
+                        Vec3f v = model->vert(face[vertexId]);
                         pts[i] = world2screen(v);
                         worldPos[i] = Vec3f(v.x, v.y, v.z);
+
+                        int uvId = i * 3 + 1;
+                        Vec3f uv = model->uv(face[uvId]);
+                        uvs[i] = uv;
+
+                        int normalId = i * 3 + 2;
+                        Vec3f normal = model->normal(face[normalId]);
+                        normals[i] = normal;
                 }
                 //法线
-                Vec3f normal = cross(worldPos[2] - worldPos[0], worldPos[1] - worldPos[0]);
-                normal.normalize();
-                float intensity = normal * lightDir;
-                if (intensity > 0)
-                        RasterizedTiangle4(pts, zbuffer, image, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255));
+                // Vec3f normal = cross(worldPos[2] - worldPos[0], worldPos[1] - worldPos[0]);
+                // normal.normalize();
+                // float intensity = normal * lightDir;
+                // if (intensity > 0)
+                //         RasterizedTiangle4(pts, zbuffer, image, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255));
+                RasterizedTiangle4(pts, normals, zbuffer, image, white);
         }
 
         image.flip_vertically(); // i want to have the origin at the left bottom corner of the image

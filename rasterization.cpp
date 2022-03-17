@@ -52,7 +52,7 @@ void RenderWireframe(Model *model, TGAImage &image)
         //当前面
         std::vector<int> face = model->face(i);
         //取三个顶点
-        for (int j = 0; j < 3; j++)
+        for (int j = 0; j < 7; j += 3)
         {
             Vec3f v0 = model->vert(face[j]);
             Vec3f v1 = model->vert(face[(j + 1) % 3]);
@@ -76,8 +76,8 @@ void RenderSimpleFragment(Model *model)
         std::vector<int> face = model->face(i);
         //取出三个顶点
         Vec3f v0 = model->vert(face[0]);
-        Vec3f v1 = model->vert(face[1]);
-        Vec3f v2 = model->vert(face[2]);
+        Vec3f v1 = model->vert(face[3]);
+        Vec3f v2 = model->vert(face[6]);
         //排序，按照x轴坐标
     }
 }
@@ -250,7 +250,7 @@ void RasterizedTiangle3(Vec3f *pts, TGAImage &image, TGAColor color)
 
 //增加了zbuffer
 //关于光栅化时，z值的确定，这里z，是根据屏幕空间的三角形，使用世界坐标的z，进行重心坐标插值的，有了重心坐标就可以做很多插值了！
-void RasterizedTiangle4(Vec3f *pts, float *zbuffer, TGAImage &image, TGAColor color)
+void RasterizedTiangle4(Vec3f *pts, Vec3f *normals, float *zbuffer, TGAImage &image, TGAColor color)
 {
     Vec2f bboxmin(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
     Vec2f bboxmax(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
@@ -273,14 +273,20 @@ void RasterizedTiangle4(Vec3f *pts, float *zbuffer, TGAImage &image, TGAColor co
             if (bc_screen.x < 0 || bc_screen.y < 0 || bc_screen.z < 0)
                 continue;
             P.z = 0;
+            Vec3f bc_normal = Vec3f(0, 0, 0);
             //用屏幕空间的重心对世界坐标z插值
             for (int i = 0; i < 3; i++)
+            {
                 P.z += pts[i].z * bc_screen[i];
+                bc_normal = bc_normal + normals[i] * bc_screen[i];
+            }
             //更新zbuffer
             if (P.z > zbuffer[(int)(P.y * width + P.x)])
             {
                 zbuffer[(int)(P.y * width + P.x)] = P.z;
-                image.set(P.x, P.y, color);
+                //计算光照
+                float intensity = bc_normal.normalize() * Vec3f(0, 0, -1);
+                image.set(P.x, P.y, TGAColor(intensity * color.r, intensity * color.g, intensity * color.b, 255));
             }
         }
     }
