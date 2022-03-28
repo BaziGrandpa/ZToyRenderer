@@ -250,12 +250,16 @@ void RasterizedTiangle3(Vec3f *pts, TGAImage &image, TGAColor color)
 
 //增加了zbuffer
 //关于光栅化时，z值的确定，这里z，是根据屏幕空间的三角形，使用世界坐标的z，进行重心坐标插值的，有了重心坐标就可以做很多插值了！
-void RasterizedTiangle4(Vec3f *pts, Vec3f *normals, float *zbuffer, TGAImage &image, TGAColor color)
+void RasterizedTiangle4(Vec3f *pts, Vec3f *normals, Vec3f *uvs, float *zbuffer, TGAImage &image, TGAImage *diffuse)
 {
     Vec2f bboxmin(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
     Vec2f bboxmax(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
     Vec2f clamp(image.get_width() - 1, image.get_height() - 1);
     int width = image.get_width();
+    int height = image.get_height();
+
+    int dWidth = diffuse->get_width();
+    int dHeight = diffuse->get_height();
     for (int i = 0; i < 3; i++)
     {
         for (int j = 0; j < 2; j++)
@@ -274,56 +278,23 @@ void RasterizedTiangle4(Vec3f *pts, Vec3f *normals, float *zbuffer, TGAImage &im
                 continue;
             P.z = 0;
             Vec3f bc_normal = Vec3f(0, 0, 0);
+            Vec3f bc_uv = Vec3f(0, 0, 0);
             //用屏幕空间的重心对世界坐标z插值
             for (int i = 0; i < 3; i++)
             {
                 P.z += pts[i].z * bc_screen[i];
                 bc_normal = bc_normal + normals[i] * bc_screen[i];
+                bc_uv = bc_uv + uvs[i] * bc_screen[i];
             }
-            //更新zbuffer
-            if (P.z > zbuffer[(int)(P.y * width + P.x)])
+            float intensity = bc_normal.normalize() * Vec3f(0, 0, 1);
+            // float intensity = cross(pts[1] - pts[0], pts[2] - pts[0]).normalize() * Vec3f(0, 0, 1);
+            //更新zbuffer,无光的直接丢弃
+            if (P.z > zbuffer[(int)(P.y * width + P.x)] && intensity > 0)
             {
                 zbuffer[(int)(P.y * width + P.x)] = P.z;
-                //计算光照
-                float intensity = bc_normal.normalize() * Vec3f(0, 0, -1);
+                //用uv采样贴图
+                TGAColor color = diffuse->get(bc_uv.x * dWidth, (1 - bc_uv.y) * dHeight);
                 image.set(P.x, P.y, TGAColor(intensity * color.r, intensity * color.g, intensity * color.b, 255));
-            }
-        }
-    }
-}
-
-//采样纹理
-void RasterizedTiangle5(Vec3f *pts, float *zbuffer, TGAImage &image, TGAImage &diffuse, TGAColor color)
-{
-    Vec2f bboxmin(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
-    Vec2f bboxmax(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
-    Vec2f clamp(image.get_width() - 1, image.get_height() - 1);
-    int width = image.get_width();
-    for (int i = 0; i < 3; i++)
-    {
-        for (int j = 0; j < 2; j++)
-        {
-            bboxmin[j] = std::max(0.f, std::min(bboxmin[j], pts[i][j]));
-            bboxmax[j] = std::min(clamp[j], std::max(bboxmax[j], pts[i][j]));
-        }
-    }
-    Vec3f P;
-    for (P.x = bboxmin.x; P.x <= bboxmax.x; P.x++)
-    {
-        for (P.y = bboxmin.y; P.y <= bboxmax.y; P.y++)
-        {
-            Vec3f bc_screen = barycentric(pts[0], pts[1], pts[2], P);
-            if (bc_screen.x < 0 || bc_screen.y < 0 || bc_screen.z < 0)
-                continue;
-            P.z = 0;
-            //用屏幕空间的重心对世界坐标z插值
-            for (int i = 0; i < 3; i++)
-                P.z += pts[i].z * bc_screen[i];
-            //更新zbuffer
-            if (P.z > zbuffer[(int)(P.y * width + P.x)])
-            {
-                zbuffer[(int)(P.y * width + P.x)] = P.z;
-                image.set(P.x, P.y, color);
             }
         }
     }

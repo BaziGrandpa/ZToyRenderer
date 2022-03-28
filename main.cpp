@@ -15,15 +15,46 @@ const TGAColor blue = TGAColor(0, 102, 255, 255);
 
 //定义光源方向
 Vec3f lightDir = Vec3f(0, 0, -1);
+Vec3f camera(0, 0, 5);
 
 Model *model = NULL;
 TGAImage *diffuse = NULL;
 const int width = 800;
 const int height = 800;
+const int depth = 255;
+
+//矩阵转向量
+Vec3f m2v(Matrix m)
+{
+        return Vec3f(m[0][0] / m[3][0], m[1][0] / m[3][0], m[2][0] / m[3][0]);
+}
+
+Matrix v2m(Vec3f v)
+{
+        Matrix m = Matrix();
+        m[0][0] = v.x;
+        m[1][0] = v.y;
+        m[2][0] = v.z;
+        m[3][0] = 1.f;
+        return m;
+}
+
+Matrix viewport(int x, int y, int w, int h)
+{
+        Matrix m = Matrix::identity();
+        m[0][3] = x + w / 2.f;
+        m[1][3] = y + h / 2.f;
+        m[2][3] = depth / 2.f;
+
+        m[0][0] = w / 2.f;
+        m[1][1] = h / 2.f;
+        m[2][2] = depth / 2.f;
+        return m;
+}
 
 Vec3f world2screen(Vec3f v)
 {
-        return Vec3f(int((v.x + 1.) * width / 2. + .5), int((v.y + 1.) * height / 2. + .5), v.z);
+        return Vec3f(int((v.x + 1.) * (width - 200) / 2. + 100.), int((v.y + 1.) * (height - 200) / 2. + 100.), v.z);
 }
 int main(int argc, char **argv)
 {
@@ -40,6 +71,11 @@ int main(int argc, char **argv)
 
         TGAImage image(width, height, TGAImage::RGB);
 
+        //视口变换相关
+        Matrix Projection = Matrix::identity();
+        // Matrix ViewPort = viewport(width / 8, height / 8, width * 3 / 4, height * 3 / 4);
+        Projection[3][2] = -1.f / camera.z;
+
         for (int i = 0; i < model->nfaces(); i++)
         {
                 std::vector<int> face = model->face(i);
@@ -51,8 +87,11 @@ int main(int argc, char **argv)
                 {
                         int vertexId = i * 3;
                         Vec3f v = model->vert(face[vertexId]);
-                        pts[i] = world2screen(v);
-                        worldPos[i] = Vec3f(v.x, v.y, v.z);
+                        // pts[i] = world2screen(v);
+                        Matrix temp0 = v2m(v);
+                        Matrix temp = Projection * temp0;
+                        pts[i] = world2screen(m2v(temp));
+                        // worldPos[i] = Vec3f(v.x, v.y, v.z);
 
                         int uvId = i * 3 + 1;
                         Vec3f uv = model->uv(face[uvId]);
@@ -68,7 +107,7 @@ int main(int argc, char **argv)
                 // float intensity = normal * lightDir;
                 // if (intensity > 0)
                 //         RasterizedTiangle4(pts, zbuffer, image, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255));
-                RasterizedTiangle4(pts, normals, zbuffer, image, white);
+                RasterizedTiangle4(pts, normals, uvs, zbuffer, image, diffuse);
         }
 
         image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
