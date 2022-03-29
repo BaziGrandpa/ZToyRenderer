@@ -250,7 +250,8 @@ void RasterizedTiangle3(Vec3f *pts, TGAImage &image, TGAColor color)
 
 //增加了zbuffer
 //关于光栅化时，z值的确定，这里z，是根据屏幕空间的三角形，使用世界坐标的z，进行重心坐标插值的，有了重心坐标就可以做很多插值了！
-void RasterizedTiangle4(Vec3f *pts, Vec3f *normals, Vec3f *uvs, float *zbuffer, TGAImage &image, TGAImage *diffuse)
+//传递进来的pts，是屏幕空间的坐标了（除了z），
+void RasterizedTiangle4(Vec3f *pts, Vec3f *normals, Vec3f *uvs, float *zbuffer, TGAImage &image, TGAImage *diffuse, bool needDiffuse)
 {
     Vec2f bboxmin(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
     Vec2f bboxmax(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
@@ -269,6 +270,7 @@ void RasterizedTiangle4(Vec3f *pts, Vec3f *normals, Vec3f *uvs, float *zbuffer, 
         }
     }
     Vec3f P;
+    //在包围盒里做光栅化
     for (P.x = bboxmin.x; P.x <= bboxmax.x; P.x++)
     {
         for (P.y = bboxmin.y; P.y <= bboxmax.y; P.y++)
@@ -286,14 +288,15 @@ void RasterizedTiangle4(Vec3f *pts, Vec3f *normals, Vec3f *uvs, float *zbuffer, 
                 bc_normal = bc_normal + normals[i] * bc_screen[i];
                 bc_uv = bc_uv + uvs[i] * bc_screen[i];
             }
-            float intensity = bc_normal.normalize() * Vec3f(0, 0, 1);
+            //假设正面001打光，照不到的就黑色
+            float intensity = std::max(bc_normal.normalize() * Vec3f(1, 0, 1).normalize(), 0.f);
             // float intensity = cross(pts[1] - pts[0], pts[2] - pts[0]).normalize() * Vec3f(0, 0, 1);
-            //更新zbuffer,无光的直接丢弃
-            if (P.z > zbuffer[(int)(P.y * width + P.x)] && intensity > 0)
+            //更新zbuffer,无光的直接丢弃，这里的zbuffer也就默认了，z值越大的越先渲染，也就无形中将摄像机摆在了z轴正向
+            if (P.z > zbuffer[(int)(P.y * width + P.x)])
             {
                 zbuffer[(int)(P.y * width + P.x)] = P.z;
                 //用uv采样贴图
-                TGAColor color = diffuse->get(bc_uv.x * dWidth, (1 - bc_uv.y) * dHeight);
+                TGAColor color = needDiffuse ? diffuse->get(bc_uv.x * dWidth, (1 - bc_uv.y) * dHeight) : TGAColor(255, 255, 255, 255);
                 image.set(P.x, P.y, TGAColor(intensity * color.r, intensity * color.g, intensity * color.b, 255));
             }
         }
