@@ -1,10 +1,10 @@
-#include "tgaimage.h"
-#include "model.h"
-#include "geometry.h"
+#include "../head/tgaimage.h"
+#include "../head/model.h"
+#include "../head/geometry.h"
+#include "../head/rasterization.h"
 #include <iostream>
 #include <cmath>
 #include <algorithm>
-#include "rasterization.h"
 
 //直线的光栅化
 void line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color)

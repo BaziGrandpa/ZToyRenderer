@@ -1,10 +1,10 @@
-#include "tgaimage.h"
-#include "model.h"
-#include "geometry.h"
+#include "head/tgaimage.h"
+#include "head/model.h"
+#include "head/geometry.h"
+#include "head/rasterization.h"
 #include <iostream>
 #include <cmath>
 #include <algorithm>
-#include "rasterization.h"
 
 const TGAColor white = TGAColor(255, 255, 255, 255);
 const TGAColor red = TGAColor(255, 0, 0, 255);
@@ -131,8 +131,6 @@ int main(int argc, char **argv)
                         Vec3f temp = m2v(mvp * v2m(v));
                         pts[i] = Vec3f((int)temp.x, (int)temp.y, temp.z); //不转整型在插值计算时出问题
 
-                        //  worldPos[i] = Vec3f(v.x, v.y, v.z);
-
                         int uvId = i * 3 + 1;
                         Vec3f uv = model->uv(face[uvId]);
                         uvs[i] = uv;
@@ -141,13 +139,8 @@ int main(int argc, char **argv)
                         Vec3f normal = model->normal(face[normalId]);
                         normals[i] = normal;
                 }
-                //不适用obj中的法线
-                // Vec3f normal = cross(worldPos[2] - worldPos[0], worldPos[1] - worldPos[0]);
-                // normal.normalize();
-                // float intensity = normal * lightDir;
-                // if (intensity > 0)
-                //         RasterizedTiangle4(pts, zbuffer, image, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255));
-                RasterizedTiangle4(pts, normals, uvs, zbuffer, image, diffuse, false);
+
+                RasterizedTiangle4(pts, normals, uvs, zbuffer, image, diffuse, true);
         }
 
         image.flip_vertically(); // i want to have the origin at the left bottom corner of the image

@@ -3,7 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
-#include "model.h"
+#include "../head/model.h"
 
 Model::Model(const char *filename) : verts_(), faces_()
 {
