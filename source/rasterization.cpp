@@ -6,6 +6,12 @@
 #include <cmath>
 #include <algorithm>
 
+const TGAColor white = TGAColor(255, 255, 255, 255);
+const TGAColor red = TGAColor(255, 0, 0, 255);
+const TGAColor green = TGAColor(51, 204, 51, 255);
+const TGAColor pink = TGAColor(255, 153, 255, 255);
+const TGAColor orange = TGAColor(255, 153, 102, 255);
+const TGAColor blue = TGAColor(0, 102, 255, 255);
 //直线的光栅化
 void line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color)
 {
@@ -251,7 +257,7 @@ void RasterizedTiangle3(Vec3f *pts, TGAImage &image, TGAColor color)
 //增加了zbuffer
 //关于光栅化时，z值的确定，这里z，是根据屏幕空间的三角形，使用世界坐标的z，进行重心坐标插值的，有了重心坐标就可以做很多插值了！
 //传递进来的pts，是屏幕空间的坐标了（除了z），
-void RasterizedTiangle4(Vec3f *pts, Vec3f *normals, Vec3f *uvs, float *zbuffer, TGAImage &image, TGAImage *diffuse, bool needDiffuse)
+void RasterizedTiangle4(Vec3f *pts, Vec3f *normals, Vec3f *uvs, float *zbuffer, TGAImage &image, TGAImage &diffuse, Vec3f &lightDir, bool needDiffuse)
 {
     Vec2f bboxmin(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
     Vec2f bboxmax(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
@@ -259,8 +265,8 @@ void RasterizedTiangle4(Vec3f *pts, Vec3f *normals, Vec3f *uvs, float *zbuffer, 
     int width = image.get_width();
     int height = image.get_height();
 
-    int dWidth = diffuse->get_width();
-    int dHeight = diffuse->get_height();
+    int dWidth = diffuse.get_width();
+    int dHeight = diffuse.get_height();
     for (int i = 0; i < 3; i++)
     {
         for (int j = 0; j < 2; j++)
@@ -289,14 +295,14 @@ void RasterizedTiangle4(Vec3f *pts, Vec3f *normals, Vec3f *uvs, float *zbuffer, 
                 bc_uv = bc_uv + uvs[i] * bc_screen[i];
             }
             //假设正面001打光，照不到的就黑色
-            float intensity = std::max(bc_normal.normalize() * Vec3f(1, 0, 1).normalize(), 0.f);
+            float intensity = std::max(bc_normal.normalize() * lightDir.normalize(), 0.f);
             // float intensity = cross(pts[1] - pts[0], pts[2] - pts[0]).normalize() * Vec3f(0, 0, 1);
             //更新zbuffer,无光的直接丢弃，这里的zbuffer也就默认了，z值越大的越先渲染，也就无形中将摄像机摆在了z轴正向
             if (P.z > zbuffer[(int)(P.y * width + P.x)])
             {
                 zbuffer[(int)(P.y * width + P.x)] = P.z;
                 //用uv采样贴图
-                TGAColor color = needDiffuse ? diffuse->get(bc_uv.x * dWidth, (1 - bc_uv.y) * dHeight) : TGAColor(255, 255, 255, 255);
+                TGAColor color = needDiffuse ? diffuse.get(bc_uv.x * dWidth, (1 - bc_uv.y) * dHeight) : white;
                 image.set(P.x, P.y, TGAColor(intensity * color.r, intensity * color.g, intensity * color.b, 255));
             }
         }
