@@ -2,16 +2,11 @@
 #include "../head/model.h"
 #include "../head/geometry.h"
 #include "../head/rasterization.h"
+#include "../head/pipeline.h"
 #include <iostream>
 #include <cmath>
 #include <algorithm>
 
-const TGAColor white = TGAColor(255, 255, 255, 255);
-const TGAColor red = TGAColor(255, 0, 0, 255);
-const TGAColor green = TGAColor(51, 204, 51, 255);
-const TGAColor pink = TGAColor(255, 153, 255, 255);
-const TGAColor orange = TGAColor(255, 153, 102, 255);
-const TGAColor blue = TGAColor(0, 102, 255, 255);
 //直线的光栅化
 void line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color)
 {
@@ -302,8 +297,51 @@ void RasterizedTiangle4(Vec3f *pts, Vec3f *normals, Vec3f *uvs, float *zbuffer, 
             {
                 zbuffer[(int)(P.y * width + P.x)] = P.z;
                 //用uv采样贴图
-                TGAColor color = needDiffuse ? diffuse.get(bc_uv.x * dWidth, (1 - bc_uv.y) * dHeight) : white;
+                TGAColor color = needDiffuse ? diffuse.get(bc_uv.x * dWidth, (1 - bc_uv.y) * dHeight) : TGAColor(255, 255, 255, 255);
                 image.set(P.x, P.y, TGAColor(intensity * color.r, intensity * color.g, intensity * color.b, 255));
+            }
+        }
+    }
+}
+void RasterizeWithShader(Shader *Shader, Vec3f *screenCord, float *zbuffer, TGAImage &image)
+{
+    //构建包围盒
+    Vec2f bboxmin(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
+    Vec2f bboxmax(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
+    Vec2f clamp(image.get_width() - 1, image.get_height() - 1);
+    int width = image.get_width();
+    int height = image.get_height();
+    for (int i = 0; i < 3; i++)
+    {
+        for (int j = 0; j < 2; j++)
+        {
+            bboxmin[j] = std::max(0.f, std::min(bboxmin[j], screenCord[i][j]));
+            bboxmax[j] = std::min(clamp[j], std::max(bboxmax[j], screenCord[i][j]));
+        }
+    }
+    //当前正在光栅化的像素
+    Vec3f P;
+    //在包围盒里做光栅化
+    for (P.x = bboxmin.x; P.x <= bboxmax.x; P.x++)
+    {
+        for (P.y = bboxmin.y; P.y <= bboxmax.y; P.y++)
+        {
+            //求出重心坐标
+            Vec3f bc_screen = barycentric(screenCord[0], screenCord[1], screenCord[2], P);
+            if (bc_screen.x < 0 || bc_screen.y < 0 || bc_screen.z < 0)
+                continue;
+            //直接让框架计算z值
+            float z = screenCord[0][2] * bc_screen.x + screenCord[1][2] * bc_screen.y + screenCord[2][2] * bc_screen.z;
+            //更新zbuffer,无光的直接丢弃，这里的zbuffer也就默认了，z值越大的越先渲染，也就无形中将摄像机摆在了z轴正向
+            if (z > zbuffer[(int)(P.y * width + P.x)])
+            {
+                zbuffer[(int)(P.y * width + P.x)] = z;
+                TGAColor fragColor;
+                //如果片元着色器决定丢弃，最终不会着色
+                if (!Shader->fragment(bc_screen, fragColor))
+                {
+                    image.set(P.x, P.y, fragColor);
+                }
             }
         }
     }

@@ -8,13 +8,12 @@
 
 const int depth = 255; //生成shadow map的时候刚好作为灰度
 float *zbuffer;        //管线中的zbuffer
-int width = 0;
-int height = 0;
+int widthp = 0;
+int heightp = 0;
 
 Model *model = NULL;
 TGAImage *diffuse = NULL;
 Matrix mvp;
-Vec3f lightDir;
 
 //加载模型
 void LoadData(const char *objName, const char *diffuseName)
@@ -32,14 +31,13 @@ void LoadData(const char *objName, const char *diffuseName)
 //初始化管线
 // 1.初始化输出分辨率
 // 2.zbuffer
-void InitPipeline(int w, int h, Vec3f ld)
+void InitPipeline(int w, int h)
 {
-    width = w;
-    height = h;
-    zbuffer = new float[width * height];
-    for (int i = width * height; i--; zbuffer[i] = -std::numeric_limits<float>::max())
+    widthp = w;
+    heightp = h;
+    zbuffer = new float[widthp * heightp];
+    for (int i = widthp * heightp; i--; zbuffer[i] = -std::numeric_limits<float>::max())
         ;
-    lightDir = ld;
 }
 
 Matrix lookat(Vec3f eye, Vec3f center, Vec3f up)
@@ -86,7 +84,7 @@ void InitMatrix(Vec3f eye, Vec3f center)
     Matrix ModelView = lookat(eye, center, Vec3f(0, 1, 0));
     Matrix Projection = Matrix::identity(); //是简单的远平面投影，基于相似，不是完整版的project
     Projection[3][2] = -1.f / (eye - center).norm();
-    Matrix vp = ViewPort(width, height);
+    Matrix vp = ViewPort(widthp, heightp);
 
     std::cerr << ModelView << std::endl;
     std::cerr << Projection << std::endl;
@@ -94,6 +92,11 @@ void InitMatrix(Vec3f eye, Vec3f center)
     Matrix z = (vp * Projection * ModelView);
     std::cerr << z << std::endl;
     mvp = z;
+}
+
+Matrix GetMVP()
+{
+    return mvp;
 }
 
 //矩阵转向量，最终放到geometry里
@@ -112,37 +115,32 @@ Matrix v2m(Vec3f v)
     return m;
 }
 
+//获取漫反射贴图，用于fragment中采样
+TGAImage *GetDiffuse()
+{
+    return diffuse;
+}
+
 //完成准备工作开始渲染
-void Render()
+void Render(Shader *shader)
 {
     if (model == NULL)
     {
         std::cout << "load model failed.";
     }
-    TGAImage output(width, height, TGAImage::RGB);
-    for (int i = 0; i < model->nfaces(); i++)
+    TGAImage output(widthp, heightp, TGAImage::RGB);
+    //一个循环光栅化一个三角面
+    for (int faceId = 0; faceId < model->nfaces(); faceId++)
     {
-        std::vector<int> face = model->face(i);
-        Vec3f pts[3];
-        Vec3f worldPos[3]; // obj原始世界坐标
-        Vec3f normals[3];
-        Vec3f uvs[3];
-        for (int i = 0; i < 3; i++) //一个面的三个顶点
+        //一个面的三个顶点经过顶点着色器处理后的坐标，一般来说是屏幕坐标
+        Vec3f screenCor[3];
+        for (int i = 0; i < 3; i++)
         {
-            int vertexId = i * 3;
-            Vec3f v = model->vert(face[vertexId]);
-            Vec3f temp = m2v(mvp * v2m(v));
-            pts[i] = Vec3f((int)temp.x, (int)temp.y, temp.z); //不转整型在插值计算时出问题
-
-            int uvId = i * 3 + 1;
-            Vec3f uv = model->uv(face[uvId]);
-            uvs[i] = uv;
-
-            int normalId = i * 3 + 2;
-            Vec3f normal = model->normal(face[normalId]);
-            normals[i] = normal;
+            screenCor[i] = shader->vertex(model, faceId, i);
         }
-        RasterizedTiangle4(pts, normals, uvs, zbuffer, output, *diffuse, lightDir, false);
+        // RasterizedTiangle4(screenCor, normals, uvs, zbuffer, output, *diffuse, lightDir, false);
+        RasterizeWithShader(shader,screenCor,zbuffer,output);
+
     }
     delete model;
     output.flip_vertically(); // i want to have the origin at the left bottom corner of the image

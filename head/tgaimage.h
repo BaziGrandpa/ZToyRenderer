@@ -20,8 +20,6 @@ struct TGA_Header {
 };
 #pragma pack(pop)
 
-
-
 struct TGAColor {
 	union {
 		struct {
@@ -58,6 +56,12 @@ struct TGAColor {
 		return *this;
 	}
 };
+const TGAColor white = TGAColor(255, 255, 255, 255);
+const TGAColor red = TGAColor(255, 0, 0, 255);
+const TGAColor green = TGAColor(51, 204, 51, 255);
+const TGAColor pink = TGAColor(255, 153, 255, 255);
+const TGAColor orange = TGAColor(255, 153, 102, 255);
+const TGAColor blue = TGAColor(0, 102, 255, 255);
 
 //tgaÍ¼Æ¬²Ù×÷Àà
 class TGAImage {
