@@ -5,8 +5,8 @@
 //场景基本配置，shader可以访问的全局变量，相当于全局宏哈哈
 int width = 800;
 int height = 800;
-Vec3f lightDir = Vec3f(1, 1, 1);
-Vec3f eye(0, 0.2, 1);
+Vec3f lightDir(2, 2, 0);
+Vec3f eye(0, 0, 2);
 Vec3f center(0, 0, 0);
 
 int main(int argc, char **argv)
@@ -18,8 +18,9 @@ int main(int argc, char **argv)
         //初始化mvp矩阵
         InitMatrix(eye, center);
         //选择你的shader
-        GouraudShader shader;
+        // GouraudShader shader;
         // ToonShader shader;
+        BlinnPhongShader shader;
         //渲染
         Render(&shader);
         return 0;

@@ -46,7 +46,9 @@ bool GouraudShader::fragment(Vec3f bc_screen, TGAColor &oColor)
         bc_normal = bc_normal + normals[i] * bc_screen[i];
         bc_uv = bc_uv + uvs[i] * bc_screen[i];
     }
-    //假设正面001打光，照不到的就黑色
+    //照不到的就黑色，
+    //这个光照之所以可以正确，因为这全是在世界坐标下的计算，相当于把模型一直摆在世界原点去做光照
+    //更通用的做法，应该是把灯变换到切线空间，读normalmap的数据算
     float intensity = std::max(bc_normal.normalize() * lightDir.normalize(), 0.f);
     TGAImage *diffuse = GetDiffuse();
     int dWidth = diffuse->get_width();
@@ -59,7 +61,6 @@ bool GouraudShader::fragment(Vec3f bc_screen, TGAColor &oColor)
     return false;
 }
 //----------------------------------------------------------------------------
-
 
 //小卡通shader
 //----------------------------------------------------------------------------
@@ -106,3 +107,73 @@ bool ToonShader::fragment(Vec3f bc_screen, TGAColor &oColor)
     return false;
 }
 //----------------------------------------------------------------------------
+
+//简单的支持高光shader
+//----------------------------------------------------------------------------
+BlinnPhongShader::BlinnPhongShader()
+{
+    //将观察向量与光照转换到屏幕空间
+    Matrix mvp = GetMVP();
+    screenEye = m2v(mvp * v2m(eye));
+    screenLightDir = m2v(mvp * v2m(lightDir));
+    InverseMVP = mvp.invert_transpose();
+    cout << "eye:" << screenEye << "ld:" << screenLightDir;
+}
+Vec3f BlinnPhongShader::vertex(Model *model, int faceId, int i)
+{
+    //拿到的是一个面的顶点坐标Id，uvId，normalId
+    std::vector<int> face = model->face(faceId);
+
+    //根据索引读取uv
+    int uvId = i * 3 + 1;
+    Vec3f uv = model->uv(face[uvId]);
+    uvs[i] = uv;
+
+    //读世界法线
+    int normalId = i * 3 + 2;
+    Vec3f normal = model->normal(face[normalId]);
+    normals[i] = normal;
+
+    //读世界坐标，然后做mvp变换
+    int vertexId = i * 3;
+    Vec3f v = model->vert(face[vertexId]);
+    Matrix mvp = GetMVP();
+
+    Vec3f temp = m2v(mvp * v2m(v));
+    return Vec3f((int)temp.x, (int)temp.y, temp.z); //不转整型在插值计算时出问题
+}
+
+//先不采样高光贴图了，直接当整个模型都有高光
+bool BlinnPhongShader::fragment(Vec3f bc_screen, TGAColor &oColor)
+{
+    Vec3f bc_normal = Vec3f(0, 0, 0);
+    Vec3f bc_uv = Vec3f(0, 0, 0);
+    //用屏幕空间的重心对世界坐标z插值
+    for (int i = 0; i < 3; i++)
+    {
+        bc_normal = bc_normal + normals[i] * bc_screen[i];
+        bc_uv = bc_uv + uvs[i] * bc_screen[i];
+    }
+    //采样漫反射颜色
+    TGAImage *diffuse = GetDiffuse();
+    int dWidth = diffuse->get_width();
+    int dHeight = diffuse->get_height();
+    TGAColor color = diffuse->get(bc_uv.x * dWidth, (1 - bc_uv.y) * dHeight);
+
+    //在世界空间计算漫反射
+    float diffuseCo = std::max(.0f, bc_normal.normalize() * lightDir.normalize()) * 0.6;
+    TGAColor diffuseColor = orange;
+
+    //屏幕空间高光
+    Vec3f halfVec = ((screenEye - bc_screen).normalize() + (screenLightDir - bc_screen).normalize()).normalize();
+    Matrix mvp = GetMVP();
+    Vec3f screenBcNormal = m2v(mvp * v2m(bc_normal));                      //计算屏幕空间法线
+    float similarCo = std::max(.0f, halfVec * screenBcNormal.normalize()); //半程向量与法线的接近程度
+    float specularCo = pow(similarCo, 500);                                //高光区域控制
+
+    oColor = TGAColor(min(diffuseCo * diffuseColor.r + specularCo * 255, 255.f),
+                      min(diffuseCo * diffuseColor.g + specularCo * 255, 255.f),
+                      min(diffuseCo * diffuseColor.b + specularCo * 255, 255.f),
+                      255);
+    return false;
+}

@@ -38,4 +38,19 @@ public:
     virtual bool fragment(Vec3f bc_screen, TGAColor &oColor);
 };
 
+class BlinnPhongShader : public Shader
+{
+
+    Vec3f normals[3];
+    Vec3f uvs[3];
+    Vec3f screenLightDir;
+    Vec3f screenEye;
+    Matrix InverseMVP; //用于将法线从世界空间变换到屏幕空间
+
+public:
+    BlinnPhongShader();
+    virtual Vec3f vertex(Model *model, int faceId, int i);
+    virtual bool fragment(Vec3f bc_screen, TGAColor &oColor);
+};
+
 #endif

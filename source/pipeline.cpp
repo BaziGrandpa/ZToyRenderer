@@ -129,6 +129,7 @@ void Render(Shader *shader)
         std::cout << "load model failed.";
     }
     TGAImage output(widthp, heightp, TGAImage::RGB);
+    
     //一个循环光栅化一个三角面
     for (int faceId = 0; faceId < model->nfaces(); faceId++)
     {
