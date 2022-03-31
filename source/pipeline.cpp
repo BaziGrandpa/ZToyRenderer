@@ -20,7 +20,7 @@ void LoadData(const char *objName, const char *diffuseName)
 {
 
     TGAImage a(100, 100, TGAImage::RGB);
-    //读模
+    //读模型
     model = new Model(objName);
 
     //读贴图
@@ -43,7 +43,7 @@ void InitPipeline(int w, int h)
 Matrix lookat(Vec3f eye, Vec3f center, Vec3f up)
 {
     Vec3f z = (eye - center).normalize();
-    Vec3f x = cross(up, z).normalize(); //这里up和z不必正交，也能算出最终正交的三个基
+    Vec3f x = cross(up, z).normalize(); //这里up和z不必正交，也能算出最终正交的三个基，要的是一个平面即可
     Vec3f y = cross(z, x).normalize();
     Matrix Minv = Matrix::identity();
     Matrix Tr = Matrix::identity();
@@ -138,9 +138,7 @@ void Render(Shader *shader)
         {
             screenCor[i] = shader->vertex(model, faceId, i);
         }
-        // RasterizedTiangle4(screenCor, normals, uvs, zbuffer, output, *diffuse, lightDir, false);
-        RasterizeWithShader(shader,screenCor,zbuffer,output);
-
+        RasterizeWithShader(shader, screenCor, zbuffer, output);
     }
     delete model;
     output.flip_vertically(); // i want to have the origin at the left bottom corner of the image
