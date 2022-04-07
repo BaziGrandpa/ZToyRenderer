@@ -21,11 +21,12 @@ public:
 
 void LoadData(const char *objName, const char *diffuseName);
 void InitPipeline(int w, int h);
-void InitMatrix(Vec3f eye, Vec3f center);
+void InitMatrix(Vec3f eye, Vec3f lightDir, Vec3f center);
 void Render(Shader *shader);
 Vec3f m2v(Matrix m);
 Matrix v2m(Vec3f v);
 Matrix GetMVP();
+Matrix GetShadowMVP();
 TGAImage *GetDiffuse();
 
 #endif

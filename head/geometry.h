@@ -50,6 +50,7 @@ struct vec<2, T>
         assert(i < 2);
         return i <= 0 ? x : y;
     }
+    float norm() { return std::sqrt(x * x + y * y); }
 
     T x, y;
 };

@@ -10,8 +10,18 @@ extern Vec3f lightDir;
 extern Vec3f eye;
 extern Vec3f center;
 
-//最基本的漫反射着色
+//逐顶点
 class GouraudShader : public Shader
+{
+    //保存顶点计算的光照强度
+    Vec3f varing_intensity;
+
+public:
+    virtual Vec3f vertex(Model *model, int faceId, int i);
+    virtual bool fragment(Vec3f bc_screen, TGAColor &oColor);
+};
+// Phongshading，是逐像素的
+class PhongShader : public Shader
 {
 private:
     //这里不用数组是因为，用一个三维向量存三个值
@@ -53,4 +63,13 @@ public:
     virtual bool fragment(Vec3f bc_screen, TGAColor &oColor);
 };
 
+class ShadowMapShader : public Shader
+{
+private:
+    Vec3f varying_z;
+
+public:
+    virtual Vec3f vertex(Model *model, int faceId, int i);
+    virtual bool fragment(Vec3f bc_screen, TGAColor &oColor);
+};
 #endif

@@ -321,10 +321,11 @@ void RasterizeWithShader(Shader *Shader, Vec3f *screenCord, float *zbuffer, TGAI
     }
     //当前正在光栅化的像素
     Vec3f P;
+    
     //在包围盒里做光栅化
-    for (P.x = bboxmin.x; P.x <= bboxmax.x; P.x++)
+    for (P.x = bboxmin.x; P.x <= bboxmax.x; P.x ++)
     {
-        for (P.y = bboxmin.y; P.y <= bboxmax.y; P.y++)
+        for (P.y = bboxmin.y; P.y <= bboxmax.y; P.y ++)
         {
             //求出重心坐标
             Vec3f bc_screen = barycentric(screenCord[0], screenCord[1], screenCord[2], P);
@@ -333,6 +334,7 @@ void RasterizeWithShader(Shader *Shader, Vec3f *screenCord, float *zbuffer, TGAI
             //直接让框架计算z值
             float z = screenCord[0][2] * bc_screen.x + screenCord[1][2] * bc_screen.y + screenCord[2][2] * bc_screen.z;
             //更新zbuffer,无光的直接丢弃，这里的zbuffer也就默认了，z值越大的越先渲染，也就无形中将摄像机摆在了z轴正向
+            //因为zbuffer是在相机空间更新的，所以如果把相机摆在-z，那么下面的判断应该改成小于号
             if (z > zbuffer[(int)(P.y * width + P.x)])
             {
                 zbuffer[(int)(P.y * width + P.x)] = z;
