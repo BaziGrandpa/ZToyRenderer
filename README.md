@@ -5,6 +5,7 @@ A tiny software renderer(base on ssloy's tinyrenderer and Games101)with 0 third 
     *Load .obj-> parse vertex-> vertex shader-> fragment in triangle?-> z-test-> fragment shader*
 * 2.Local illumination algorithms like Blinn-Phong.
 * 3.Some basic GI effects,SSAO base on vector,shadow mapping...
+* 4.SSAA
 * ...Ray-Tracing，
 
 
