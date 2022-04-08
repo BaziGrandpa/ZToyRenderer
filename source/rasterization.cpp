@@ -303,7 +303,7 @@ void RasterizedTiangle4(Vec3f *pts, Vec3f *normals, Vec3f *uvs, float *zbuffer, 
         }
     }
 }
-void RasterizeWithShader(Shader *Shader, Vec3f *screenCord, float *zbuffer, TGAImage &image)
+void RasterizeWithShader(Shader *Shader, Vec3f *screenCord, float *zbuffer, TGAImage &image, bool ssaa)
 {
     //构建包围盒
     Vec2f bboxmin(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
@@ -321,28 +321,79 @@ void RasterizeWithShader(Shader *Shader, Vec3f *screenCord, float *zbuffer, TGAI
     }
     //当前正在光栅化的像素
     Vec3f P;
-    
+
     //在包围盒里做光栅化
-    for (P.x = bboxmin.x; P.x <= bboxmax.x; P.x ++)
+    for (P.x = bboxmin.x; P.x <= bboxmax.x; P.x++)
     {
-        for (P.y = bboxmin.y; P.y <= bboxmax.y; P.y ++)
+        for (P.y = bboxmin.y; P.y <= bboxmax.y; P.y++)
         {
-            //求出重心坐标
             Vec3f bc_screen = barycentric(screenCord[0], screenCord[1], screenCord[2], P);
-            if (bc_screen.x < 0 || bc_screen.y < 0 || bc_screen.z < 0)
-                continue;
-            //直接让框架计算z值
-            float z = screenCord[0][2] * bc_screen.x + screenCord[1][2] * bc_screen.y + screenCord[2][2] * bc_screen.z;
-            //更新zbuffer,无光的直接丢弃，这里的zbuffer也就默认了，z值越大的越先渲染，也就无形中将摄像机摆在了z轴正向
-            //因为zbuffer是在相机空间更新的，所以如果把相机摆在-z，那么下面的判断应该改成小于号
-            if (z > zbuffer[(int)(P.y * width + P.x)])
+            if (ssaa)
             {
-                zbuffer[(int)(P.y * width + P.x)] = z;
-                TGAColor fragColor;
-                //如果片元着色器决定丢弃，最终不会着色
-                if (!Shader->fragment(bc_screen, fragColor))
+                //因为一个像素又分为四个，所以不好判断是否在三角型内了
+                Vec3f ms_bc_screen;
+                float r = 0;
+                float g = 0;
+                float b = 0;
+                //记录四个采样点，有没有一个是在三角形内的，有一个在就为true
+                bool inside = false;
+                //一个像素点周围采样四次
+                for (int i = 1; i <= 4; i++)
                 {
-                    image.set(P.x, P.y, fragColor);
+                    float xStep = (((i % 2) * 2) - 1) * -0.5; // i==1,3时 xStep==-0.5 i==2,4时xStep==0.5
+                    float yStep = (((i % 2) * 2) - 1) * 0.5;  // i==1,3时 yStep==0.5 i==2,4时xStep==-0.5
+                    //构造超采样点
+                    Vec3f ms_P(P.x + xStep, P.y + yStep, 0);
+                    ms_bc_screen = barycentric(screenCord[0], screenCord[1], screenCord[2], ms_P);
+                    bool curInside = ms_bc_screen.x >= 0 && ms_bc_screen.y >= 0 && ms_bc_screen.z >= 0; //超采样点是否在三角型内
+                    TGAColor ms_color(255, 255, 255, 255);                                              //边缘和白色混合
+                    if (curInside)
+                    {
+                        Shader->fragment(ms_bc_screen, ms_color);
+                        inside = true;
+                    }
+                    r += ms_color.r;
+                    g += ms_color.g;
+                    b += ms_color.b;
+                    //不在三角型内，就算是+ms_color了
+                }
+
+                //这点是需要着色的，因为四个采样点有一个是在三角形内
+                if (inside)
+                {
+                    //到这里再深度测试，注意这里使用中心点的
+                    float z = screenCord[0][2] * bc_screen.x + screenCord[1][2] * bc_screen.y + screenCord[2][2] * bc_screen.z;
+                    if (z > zbuffer[(int)(P.y * width + P.x)])
+                    {
+                        zbuffer[(int)(P.y * width + P.x)] = z;
+                        unsigned char cr = r / 4;
+                        unsigned char cg = g / 4;
+                        unsigned char cb = b / 4;
+                        TGAColor ssaaColor(cr, cg, cb, 255);
+                        image.set(P.x, P.y, ssaaColor);
+                    }
+                }
+            }
+            else
+            {
+                //求出重心坐标
+
+                if (bc_screen.x < 0 || bc_screen.y < 0 || bc_screen.z < 0)
+                    continue;
+                //直接让框架计算z值
+                float z = screenCord[0][2] * bc_screen.x + screenCord[1][2] * bc_screen.y + screenCord[2][2] * bc_screen.z;
+                //更新zbuffer,无光的直接丢弃，这里的zbuffer也就默认了，z值越大的越先渲染，也就无形中将摄像机摆在了z轴正向
+                //因为zbuffer是在相机空间更新的，所以如果把相机摆在-z，那么下面的判断应该改成小于号
+                if (z > zbuffer[(int)(P.y * width + P.x)])
+                {
+                    zbuffer[(int)(P.y * width + P.x)] = z;
+
+                    TGAColor fragColor;
+                    //如果片元着色器决定丢弃，最终不会着色
+                    if (!Shader->fragment(bc_screen, fragColor))
+                    {
+                        image.set(P.x, P.y, fragColor);
+                    }
                 }
             }
         }

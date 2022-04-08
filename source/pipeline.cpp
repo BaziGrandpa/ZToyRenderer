@@ -186,27 +186,27 @@ void Render(Shader *shader)
         //其实这里还缺了一步，需要检查变换后的三角型，是否在屏幕坐标内，然后处于屏幕边界的三角型需要裁剪
         // todo check if triangle in screen
 
-        RasterizeWithShader(shader, screenCor, zbuffer, output);
+        RasterizeWithShader(shader, screenCor, zbuffer, output, false);
     }
     delete model;
     //屏幕后处理
     // ssao
-    output.clear();
-    output = TGAImage(widthp, heightp, TGAImage::RGB);
-    for (int x = 0; x < widthp; x++)
-    {
-        for (int y = 0; y < heightp; y++)
-        {
-            int bufferId = x + y * widthp;
-            float zValue = zbuffer[bufferId];
-            float min = -100000;
-            if (zValue < min) //没有fragment
-                continue;
+    // output.clear();
+    // output = TGAImage(widthp, heightp, TGAImage::RGB);
+    // for (int x = 0; x < widthp; x++)
+    // {
+    //     for (int y = 0; y < heightp; y++)
+    //     {
+    //         int bufferId = x + y * widthp;
+    //         float zValue = zbuffer[bufferId];
+    //         float min = -100000;
+    //         if (zValue < min) //没有fragment
+    //             continue;
 
-            float intensity = EvaluateSSAOIntensity(x, y);
-            output.set(x, y, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255));
-        }
-    }
+    //         float intensity = EvaluateSSAOIntensity(x, y);
+    //         output.set(x, y, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255));
+    //     }
+    // }
 
     output.flip_vertically(); // i want to have the origin at the left bottom corner of the image
     output.write_tga_file("output.tga");

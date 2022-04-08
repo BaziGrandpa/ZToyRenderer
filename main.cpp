@@ -21,9 +21,9 @@ int main(int argc, char **argv)
         //Ñ¡ÔñÄãµÄshader
         GouraudShader shader;
         // PhongShader shader;
-        //  ToonShader shader;
-        //  BlinnPhongShader shader;
-        //  ShadowMapShader shader;
+        //   ToonShader shader;
+        //   BlinnPhongShader shader;
+        //   ShadowMapShader shader;
         //äÖÈ¾
         Render(&shader);
         return 0;
